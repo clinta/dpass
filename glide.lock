@@ -1,0 +1,15 @@
+hash: b253ff1f7af065bdad8af5cf4612648140952a85273b7f4c0fa3e6d114a79099
+updated: 2016-11-16T21:08:45.412786877-05:00
+imports:
+- name: github.com/urfave/cli
+  version: b4f4786f378c0c1d3336b5bb798094b166edf5a9
+- name: golang.org/x/crypto
+  version: 9477e0b78b9ac3d0b03822fd95422e2fe07627cd
+  subpackages:
+  - scrypt
+  - ssh/terminal
+- name: golang.org/x/sys
+  version: b699b7032584f0953262cb2788a0ca19bb494703
+  subpackages:
+  - unix
+testImports: []

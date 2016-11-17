@@ -1,0 +1,7 @@
+package: github.com/clinta/dpass
+import:
+- package: github.com/urfave/cli
+- package: golang.org/x/crypto
+  subpackages:
+  - ssh/terminal
+  - scrypt
