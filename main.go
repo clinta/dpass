@@ -125,18 +125,21 @@ func Run(ctx *cli.Context) error {
 
 	g.setChars()
 
-	fmt.Print("Enter Master Password: ")
+	fmt.Fprint(os.Stderr, "Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Fprintln(os.Stderr, "")
 	if err != nil {
 		return err
 	}
-	fmt.Println("Password: ", string(bytePassword))
-
 	if err := g.hashPw(bytePassword); err != nil {
 		return err
 	}
 	//fmt.Println("Password after hash: ", string(bytePassword))
 	//fmt.Println("Hashed Password: ", string(g.hashedPassword))
-	g.genPw()
+	pw, err := g.genPw()
+	if err != nil {
+		return err
+	}
+	fmt.Println(pw)
 	return nil
 }

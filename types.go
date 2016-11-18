@@ -99,7 +99,7 @@ func (g *genOpts) setChars() {
 
 type pw []rune
 
-func (g *genOpts) genPw() error {
+func (g *genOpts) genPw() (string, error) {
 	pwo := make([]uint64, g.Length) // the order to fill characters
 
 	pwr := make([]uint64, g.Length) // remainding positions to be allocated
@@ -118,13 +118,13 @@ func (g *genOpts) genPw() error {
 	pw := make(pw, g.Length)
 	for _, p := range pwo {
 		if len(g.chars) == 0 {
-			return fmt.Errorf("Unable to satisfy requirements")
+			return "", fmt.Errorf("Unable to satisfy requirements")
 		}
 		j := g.hashStream.nextMax(uint64(len(g.chars)))
 		r := g.chars[j]
 		pw[p] = r
 		if err := g.updateChars(r); err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -132,7 +132,7 @@ func (g *genOpts) genPw() error {
 	i := 0
 	for _, c := range g.charSets {
 		if i >= len(pwo) {
-			return fmt.Errorf("Unale to satisfy requirements")
+			return "", fmt.Errorf("Unale to satisfy requirements")
 		}
 		if c.cur >= c.min {
 			continue
@@ -142,13 +142,12 @@ func (g *genOpts) genPw() error {
 		r := c.chars[j]
 		pw[p] = r
 		if err := g.updateChars(r); err != nil {
-			return err
+			return "", err
 		}
 		i++
 	}
-	fmt.Printf("Pw: %v\n", string(pw))
 
-	return nil
+	return string(pw), nil
 }
 
 func (g *genOpts) updateChars(r rune) error {
