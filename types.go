@@ -1,128 +1,86 @@
 package main
 
-import (
-	"encoding/binary"
-	"fmt"
-	"math/big"
-
-	"golang.org/x/crypto/scrypt"
-)
+import "fmt"
 
 type genOpts struct {
 	domain     string
 	username   string
-	iteration  int
-	length     int
-	genVersion int
-	symbolSet  []rune
-	hashSeed   []byte
-	charRules  []*charRule
-	keySize    int
-	charPos    map[int64]int // Maps a specific class to a specific position to satisfy minimum character requirements
-}
-
-type charRule struct {
-	min      int
-	max      int
-	dictSize int // how many characters exist in this class
+	iteration  uint64
+	length     uint64
+	genVersion uint64
+	charSets   []*charSet
+	chars      chars // The superset of all the valid charsets for this pw
+	hashStream *hashStream
 }
 
 const (
-	upper = iota
-	lower
+	lower = iota
+	upper
 	number
 	symbol
 )
 
-func (g *genOpts) checkMax() error {
-	for _, cr := range g.charRules {
-		if cr.max == -1 || cr.max > g.length {
-			cr.max = g.length
-		}
-		if cr.max < cr.min {
-			return fmt.Errorf("max cannot be less than min")
-		}
-	}
-	return nil
+type charSet struct {
+	chars chars
+	min   uint64
+	max   uint64
+	cur   uint64
 }
 
-func (g *genOpts) setMinCharPos() error {
-	g.charPos = make(map[int64]int)
-	nc := big.NewInt(int64(g.length))
-	for ci, cr := range g.charRules {
-		hp := new(big.Int)
-		hp.SetBytes(g.hashSeed)
-		for i := 0; i < cr.min; {
-			p := new(big.Int).Mod(hp, nc)
-			hp = hp.Sub(hp, nc)
-			if _, ok := g.charPos[p.Int64()]; ok {
-				hp = hp.Sub(hp, big.NewInt(int64(len(g.charPos))))
-				continue
-			}
-			g.charPos[p.Int64()] = ci
-			i++
-		}
+func (c charSet) setMax(max int, length uint64) {
+	if max < 0 || max > int(length) {
+		c.max = length
 	}
-	return nil
+	c.max = uint64(max)
 }
 
-func (g *genOpts) genPW() ([]byte, error) {
-	hp := new(big.Int)
-	hp.SetBytes(g.hashSeed)
-	pw := make([]byte, g.length)
-	for i := range pw {
-		b := make([]byte, 4)
-		if cc, ok := g.charPos[int64(i)]; ok {
-			cb := big.NewInt(int64(g.charRules[cc].dictSize))
-			binary.PutVarint(b, new(big.Int).Mod(hp, cb).Int64())
-			pw[i] = b[len(b)-1]
+type chars []rune
+
+func (c chars) populate(minRune, maxRune rune) {
+	c = make([]rune, maxRune-minRune+1)
+	i := 0
+	for j := minRune; j <= maxRune; j++ {
+		c[i] = j
+		j++
+	}
+}
+
+func (g *genOpts) setChars(symbolSet string) {
+	g.charSets[lower].chars.populate('a', 'z')
+	g.charSets[upper].chars.populate('A', 'Z')
+	g.charSets[number].chars.populate('0', '9')
+
+	fs := make(map[rune]struct{})
+	for _, r := range symbolSet {
+		if _, ok := fs[r]; ok {
 			continue
 		}
+		g.charSets[symbol].chars = append(g.charSets[symbol].chars, r)
+		fs[r] = struct{}{}
 	}
-	return pw, nil
+
+	for i := lower; i <= symbol; i++ {
+		g.chars = append(g.chars, g.charSets[i].chars...)
+	}
 }
 
-func (g *genOpts) setChars(symbols string) error {
-	if err := g.checkMax(); err != nil {
-		return err
-	}
-	r := g.charRules[upper]
-	r.dictSize = ('Z' - 'A' + 1)
-	r = g.charRules[lower]
-	r.dictSize = ('z' - 'a' + 1)
-	r = g.charRules[number]
-	r.dictSize = ('9' - '0' + 1)
+type pw []byte
 
-	us := make(map[rune]struct{})
-	g.symbolSet = make([]rune, len(us))
-	for s := range us {
-		g.symbolSet = append(g.symbolSet, s)
+func (g *genOpts) genPw() pw {
+	//pw := make(pw, g.length)
+	pwo := make([]uint64, g.length) // the order to fill characters
+
+	pwr := make([]uint64, g.length) // remainding positions to be allocated
+	for i := uint64(0); i < g.length; i++ {
+		pwr[i] = i
 	}
-	r = g.charRules[number]
-	r.dictSize = len(g.symbolSet)
-	maxDictLen := g.charRules[upper].dictSize +
-		g.charRules[lower].dictSize +
-		g.charRules[number].dictSize +
-		g.charRules[symbol].dictSize
-	g.keySize = (maxDictLen * g.length) * 2
+
+	for i := uint64(0); i < g.length; i++ {
+		j := g.hashStream.nextMax(uint64(len(pwr)))
+		pwo[i] = pwr[j]
+		pwr = append(pwr[:j], pwr[j+1:]...)
+	}
+
+	fmt.Printf("Password Order: %v", pwo)
 	return nil
-}
-
-func (g *genOpts) hashPw(pw []byte) error {
-	// no matter what, zero the password
-	defer func() {
-		for i := range pw {
-			pw[i] = 0
-		}
-	}()
-
-	if g.genVersion > latestGenVersion {
-		return fmt.Errorf("Unknown password version: %d", g.genVersion)
-	}
-
-	// Version 1
-	var err error
-	salt := []byte(fmt.Sprint(g.domain, g.username, g.iteration, appName))
-	g.hashSeed, err = scrypt.Key(pw, salt, 2^10, 8, 1, g.keySize)
-	return err
 }

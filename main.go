@@ -29,22 +29,22 @@ func main() {
 			Name:  "username, u",
 			Usage: "Username for the domain",
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "iteration, i",
 			Usage: "Iteration of the password",
 			Value: 1,
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "characters, c",
 			Usage: "Number of characters to make the password",
 			Value: 24,
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "pw-version, pwv",
 			Usage: "Version of the password generation algorithm to use",
 			Value: latestGenVersion,
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "symbols, s",
 			Usage: "Minimum number of symbol characters to include.",
 			Value: 0,
@@ -54,7 +54,7 @@ func main() {
 			Usage: "Maximum number of symbol characters to include. -1 means no max. 0 to disable symbols.",
 			Value: -1,
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "numbers, n",
 			Usage: "Minimum number of digits to include.",
 			Value: 0,
@@ -64,7 +64,7 @@ func main() {
 			Usage: "Maximum number of digits to include. -1 means no max",
 			Value: -1,
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "lowers, l",
 			Usage: "Minimum number of lowercase letters.",
 			Value: 0,
@@ -74,7 +74,7 @@ func main() {
 			Usage: "Maximum number of lowercase letters to include. -1 means no max",
 			Value: -1,
 		},
-		cli.IntFlag{
+		cli.Uint64Flag{
 			Name:  "uppers, U",
 			Usage: "Minimum number of uppercase letters.",
 			Value: 0,
@@ -109,31 +109,29 @@ func Run(ctx *cli.Context) error {
 	g := genOpts{
 		domain:     ctx.String("domain"),
 		username:   ctx.String("username"),
-		iteration:  ctx.Int("iteration"),
-		length:     ctx.Int("characters"),
-		genVersion: ctx.Int("version"),
+		iteration:  ctx.Uint64("iteration"),
+		length:     ctx.Uint64("characters"),
+		genVersion: ctx.Uint64("version"),
 	}
-	g.charRules = make([]*charRule, 4)
-	g.charRules[upper] = &charRule{
-		max: ctx.Int("max-uppers"),
-		min: ctx.Int("uppers"),
+	g.charSets = make([]*charSet, 4)
+	g.charSets[upper] = &charSet{
+		min: ctx.Uint64("uppers"),
 	}
-	g.charRules[lower] = &charRule{
-		max: ctx.Int("max-lowers"),
-		min: ctx.Int("lowers"),
+	g.charSets[upper].setMax(ctx.Int("max-uppers"), g.length)
+	g.charSets[lower] = &charSet{
+		min: ctx.Uint64("lowers"),
 	}
-	g.charRules[number] = &charRule{
-		max: ctx.Int("max-numbers"),
-		min: ctx.Int("numbers"),
+	g.charSets[lower].setMax(ctx.Int("max-lowers"), g.length)
+	g.charSets[number] = &charSet{
+		min: ctx.Uint64("numbers"),
 	}
-	g.charRules[symbol] = &charRule{
-		max: ctx.Int("max-symbols"),
-		min: ctx.Int("symbols"),
+	g.charSets[number].setMax(ctx.Int("max-numbers"), g.length)
+	g.charSets[symbol] = &charSet{
+		min: ctx.Uint64("symbols"),
 	}
+	g.charSets[symbol].setMax(ctx.Int("max-symbols"), g.length)
 
-	if err := g.setChars(ctx.String("symbol-set")); err != nil {
-		return err
-	}
+	g.setChars(ctx.String("symbol-set"))
 
 	fmt.Print("Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -147,9 +145,6 @@ func Run(ctx *cli.Context) error {
 	}
 	//fmt.Println("Password after hash: ", string(bytePassword))
 	//fmt.Println("Hashed Password: ", string(g.hashedPassword))
-	fmt.Println("Key size: ", g.keySize)
-	g.setMinCharPos()
-	fmt.Printf("char pos: %v", g.charPos)
-
+	g.genPw()
 	return nil
 }
