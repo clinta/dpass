@@ -3,20 +3,29 @@ package main
 import "fmt"
 
 type genOpts struct {
-	domain     string
-	username   string
-	iteration  uint64
-	length     uint64
-	genVersion uint64
-	charSets   []*charSet
-	chars      chars // The superset of all the valid charsets for this pw
+	Domain     string     `json:"d"`
+	Username   string     `json:"u"`
+	Iteration  uint64     `json:"i"`
+	Length     uint64     `json:"c"`
+	GenVersion uint64     `json:"pwv"`
+	Numbers    uint64     `json:"n"`
+	MaxNumbers int        `json:"mn"`
+	Uppers     uint64     `json:"U"`
+	MaxUppers  int        `json:"mU"`
+	Lowers     uint64     `json:"l"`
+	MaxLowers  int        `json:"ml"`
+	Symbols    uint64     `json:"s"`
+	MaxSymbols int        `json:"ms"`
+	SymbolSet  string     `json:"ss"`
+	charSets   []*charSet `json:"cs"`
+	chars      chars      // The superset of all the valid charsets for this pw
 	hashStream *hashStream
 }
 
 const (
-	lower = iota
+	number = iota
 	upper
-	number
+	lower
 	symbol
 )
 
@@ -27,7 +36,7 @@ type charSet struct {
 	cur   uint64
 }
 
-func (c charSet) setMax(max int, length uint64) {
+func (c *charSet) setMax(max int, length uint64) {
 	if max < 0 || max > int(length) {
 		c.max = length
 	}
@@ -36,22 +45,43 @@ func (c charSet) setMax(max int, length uint64) {
 
 type chars []rune
 
-func (c chars) populate(minRune, maxRune rune) {
-	c = make([]rune, maxRune-minRune+1)
+func (c *charSet) populate(minRune, maxRune rune) {
+	c.chars = make(chars, maxRune-minRune+1)
 	i := 0
 	for j := minRune; j <= maxRune; j++ {
-		c[i] = j
-		j++
+		c.chars[i] = j
+		i++
 	}
 }
 
-func (g *genOpts) setChars(symbolSet string) {
-	g.charSets[lower].chars.populate('a', 'z')
-	g.charSets[upper].chars.populate('A', 'Z')
-	g.charSets[number].chars.populate('0', '9')
+func (c chars) index(r rune) int {
+	for i, ru := range c {
+		if ru == r {
+			return i
+		}
+	}
+	return -1
+}
 
+func (g *genOpts) setChars() {
+	g.charSets = make([]*charSet, 4)
+
+	g.charSets[number] = &charSet{min: g.Numbers}
+	g.charSets[number].setMax(g.MaxNumbers, g.Length)
+	g.charSets[number].populate('0', '9')
+
+	g.charSets[upper] = &charSet{min: g.Uppers}
+	g.charSets[upper].setMax(g.MaxUppers, g.Length)
+	g.charSets[upper].populate('A', 'Z')
+
+	g.charSets[lower] = &charSet{min: g.Lowers}
+	g.charSets[lower].setMax(g.MaxLowers, g.Length)
+	g.charSets[lower].populate('a', 'z')
+
+	g.charSets[symbol] = &charSet{min: g.Symbols}
+	g.charSets[symbol].setMax(g.MaxSymbols, g.Length)
 	fs := make(map[rune]struct{})
-	for _, r := range symbolSet {
+	for _, r := range g.SymbolSet {
 		if _, ok := fs[r]; ok {
 			continue
 		}
@@ -59,28 +89,90 @@ func (g *genOpts) setChars(symbolSet string) {
 		fs[r] = struct{}{}
 	}
 
-	for i := lower; i <= symbol; i++ {
-		g.chars = append(g.chars, g.charSets[i].chars...)
+	for _, c := range g.charSets {
+		if c.max == 0 {
+			continue
+		}
+		g.chars = append(g.chars, c.chars...)
 	}
 }
 
-type pw []byte
+type pw []rune
 
-func (g *genOpts) genPw() pw {
-	//pw := make(pw, g.length)
-	pwo := make([]uint64, g.length) // the order to fill characters
+func (g *genOpts) genPw() error {
+	pwo := make([]uint64, g.Length) // the order to fill characters
 
-	pwr := make([]uint64, g.length) // remainding positions to be allocated
-	for i := uint64(0); i < g.length; i++ {
+	pwr := make([]uint64, g.Length) // remainding positions to be allocated
+	for i := uint64(0); i < g.Length; i++ {
 		pwr[i] = i
 	}
 
-	for i := uint64(0); i < g.length; i++ {
+	// Get the deterministic, random order which the pw will be filled
+	for i := uint64(0); i < g.Length; i++ {
 		j := g.hashStream.nextMax(uint64(len(pwr)))
 		pwo[i] = pwr[j]
 		pwr = append(pwr[:j], pwr[j+1:]...)
 	}
 
-	fmt.Printf("Password Order: %v", pwo)
+	// time to fill the password
+	pw := make(pw, g.Length)
+	for _, p := range pwo {
+		if len(g.chars) == 0 {
+			return fmt.Errorf("Unable to satisfy requirements")
+		}
+		j := g.hashStream.nextMax(uint64(len(g.chars)))
+		r := g.chars[j]
+		pw[p] = r
+		if err := g.updateChars(r); err != nil {
+			return err
+		}
+	}
+
+	// Make sure it meets minimum reqs, and replace if not
+	i := 0
+	for _, c := range g.charSets {
+		if i >= len(pwo) {
+			return fmt.Errorf("Unale to satisfy requirements")
+		}
+		if c.cur >= c.min {
+			continue
+		}
+		p := pwo[i]
+		j := g.hashStream.nextMax(uint64(len(c.chars)))
+		r := c.chars[j]
+		pw[p] = r
+		if err := g.updateChars(r); err != nil {
+			return err
+		}
+		i++
+	}
+	fmt.Printf("Pw: %v\n", string(pw))
+
 	return nil
+}
+
+func (g *genOpts) updateChars(r rune) error {
+	for _, c := range g.charSets {
+		if c.chars.index(r) == -1 {
+			continue
+		}
+		c.cur++
+		if c.cur == c.max {
+			g.chars.remove(c.chars...)
+		}
+		if c.cur > c.max {
+			return fmt.Errorf("Unable to satisfy maximum requirements")
+		}
+	}
+	return nil
+}
+
+func (c chars) remove(rs ...rune) {
+	for _, r := range rs {
+		i := c.index(r)
+		if i == -1 {
+			continue
+		}
+		c = append(c[:i], c[i+1:]...)
+	}
 }

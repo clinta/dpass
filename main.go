@@ -107,31 +107,23 @@ func Run(ctx *cli.Context) error {
 	}
 
 	g := genOpts{
-		domain:     ctx.String("domain"),
-		username:   ctx.String("username"),
-		iteration:  ctx.Uint64("iteration"),
-		length:     ctx.Uint64("characters"),
-		genVersion: ctx.Uint64("version"),
+		Domain:     ctx.String("domain"),
+		Username:   ctx.String("username"),
+		Iteration:  ctx.Uint64("iteration"),
+		Length:     ctx.Uint64("characters"),
+		GenVersion: ctx.Uint64("pw-version"),
+		Numbers:    ctx.Uint64("numbers"),
+		MaxNumbers: ctx.Int("max-numbers"),
+		Uppers:     ctx.Uint64("uppers"),
+		MaxUppers:  ctx.Int("max-uppers"),
+		Lowers:     ctx.Uint64("lowers"),
+		MaxLowers:  ctx.Int("max-lowers"),
+		Symbols:    ctx.Uint64("symbols"),
+		MaxSymbols: ctx.Int("max-symbols"),
+		SymbolSet:  ctx.String("symbol-set"),
 	}
-	g.charSets = make([]*charSet, 4)
-	g.charSets[upper] = &charSet{
-		min: ctx.Uint64("uppers"),
-	}
-	g.charSets[upper].setMax(ctx.Int("max-uppers"), g.length)
-	g.charSets[lower] = &charSet{
-		min: ctx.Uint64("lowers"),
-	}
-	g.charSets[lower].setMax(ctx.Int("max-lowers"), g.length)
-	g.charSets[number] = &charSet{
-		min: ctx.Uint64("numbers"),
-	}
-	g.charSets[number].setMax(ctx.Int("max-numbers"), g.length)
-	g.charSets[symbol] = &charSet{
-		min: ctx.Uint64("symbols"),
-	}
-	g.charSets[symbol].setMax(ctx.Int("max-symbols"), g.length)
 
-	g.setChars(ctx.String("symbol-set"))
+	g.setChars()
 
 	fmt.Print("Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
