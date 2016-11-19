@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/clinta/dpass"
 	"github.com/urfave/cli"
@@ -86,6 +85,14 @@ func main() {
 			Usage: "Set of symbols to include",
 			Value: dpass.DefaultSymbolSet,
 		},
+		cli.BoolFlag{
+			Name:  "json, j",
+			Usage: "Output json based options",
+		},
+		cli.StringFlag{
+			Name:  "json-in, ji",
+			Usage: "Input json options",
+		},
 	}
 	app.Action = Run
 	err := app.Run(os.Args)
@@ -96,14 +103,16 @@ func main() {
 }
 
 func Run(ctx *cli.Context) error {
-	if ctx.String("domain") == "" {
-		return fmt.Errorf("Domain required")
-	}
-	if ctx.String("username") == "" {
-		return fmt.Errorf("Username required")
+	g := dpass.NewGenOpts(ctx.String("username"), ctx.String("domain"))
+	var err error
+
+	if ctx.String("json-in") != "" {
+		g, err = dpass.FromJSON([]byte(ctx.String("json-in")))
+		if err != nil {
+			return err
+		}
 	}
 
-	g := dpass.NewGenOpts(ctx.String("username"), ctx.String("domain"))
 	g.Iteration = ctx.Uint64("iteration")
 	g.Length = ctx.Uint64("characters")
 	g.GenVersion = ctx.Uint64("pw-version")
@@ -117,8 +126,25 @@ func Run(ctx *cli.Context) error {
 	g.MaxSymbols = ctx.Int("max-symbols")
 	g.SymbolSet = ctx.String("symbol-set")
 
+	if g.Domain == "" {
+		return fmt.Errorf("Domain required")
+	}
+	if g.Username == "" {
+		return fmt.Errorf("Username required")
+	}
+
+	if ctx.Bool("json") {
+		j, err := g.JSON()
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(j))
+		return nil
+	}
+
 	fmt.Fprint(os.Stderr, "Enter Master Password: ")
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	//bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr, "")
 	if err != nil {
 		return err

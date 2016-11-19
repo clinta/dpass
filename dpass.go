@@ -31,7 +31,7 @@ type GenOpts struct {
 const (
 	DefaultMax       = -1
 	DefaultLength    = 24
-	DefaultSymbolSet = "~!@#$%^&*()_+-=;,./?"
+	DefaultSymbolSet = "~!@#$%^*_+-=;,./?"
 )
 
 // NewGenOpts returns default options
