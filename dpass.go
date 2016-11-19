@@ -5,7 +5,7 @@ import "fmt"
 const AppName = "dpass"
 
 // This is the version of the generator. It is encoded into the output blob for reverse compatibility if the generation algorithm has changed
-const LatestGenVersion = 1
+const LatestGenVersion = uint64(1)
 
 type GenOpts struct {
 	Domain      string `json:"d"`

@@ -5,5 +5,11 @@ tagged and released. If those tests break then the generator must be incremented
 to preserve backwards compatibility.
 
 ```bash
-go run goTest.go template.go | gofmt > v2_test.go
+go run genTests/*.go > v1_test.go.tmp && mv v1_test.go.tmp v1_test.go
+```
+
+Testing parameters were generated using:
+
+```bash
+go run genParams/*.go > params.go.tmp && mv params.go.tmp params.go
 ```
