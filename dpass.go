@@ -29,6 +29,27 @@ type GenOpts struct {
 }
 
 const (
+	DefaultMax       = -1
+	DefaultLength    = 24
+	DefaultSymbolSet = "~!@#$%^&*()_+-=;,./?"
+)
+
+// NewGenOpts returns default options
+func NewGenOpts(u, d string) *GenOpts {
+	return &GenOpts{
+		Username:   u,
+		Domain:     d,
+		Length:     DefaultLength,
+		GenVersion: LatestGenVersion,
+		MaxNumbers: DefaultMax,
+		MaxUppers:  DefaultMax,
+		MaxLowers:  DefaultMax,
+		MaxSymbols: DefaultMax,
+		SymbolSet:  DefaultSymbolSet,
+	}
+}
+
+const (
 	Number = iota
 	Upper
 	Lower

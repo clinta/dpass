@@ -29,12 +29,12 @@ func main() {
 		cli.Uint64Flag{
 			Name:  "iteration, i",
 			Usage: "Iteration of the password",
-			Value: 1,
+			Value: 0,
 		},
 		cli.Uint64Flag{
 			Name:  "characters, c",
 			Usage: "Number of characters to make the password",
-			Value: 24,
+			Value: dpass.DefaultLength,
 		},
 		cli.Uint64Flag{
 			Name:  "pw-version, pwv",
@@ -49,7 +49,7 @@ func main() {
 		cli.IntFlag{
 			Name:  "max-symbols, ms",
 			Usage: "Maximum number of symbol characters to include. -1 means no max. 0 to disable symbols.",
-			Value: -1,
+			Value: dpass.DefaultMax,
 		},
 		cli.Uint64Flag{
 			Name:  "numbers, n",
@@ -59,7 +59,7 @@ func main() {
 		cli.IntFlag{
 			Name:  "max-numbers, mn",
 			Usage: "Maximum number of digits to include. -1 means no max",
-			Value: -1,
+			Value: dpass.DefaultMax,
 		},
 		cli.Uint64Flag{
 			Name:  "lowers, l",
@@ -69,7 +69,7 @@ func main() {
 		cli.IntFlag{
 			Name:  "max-lowers, ml",
 			Usage: "Maximum number of lowercase letters to include. -1 means no max",
-			Value: -1,
+			Value: dpass.DefaultMax,
 		},
 		cli.Uint64Flag{
 			Name:  "uppers, U",
@@ -79,12 +79,12 @@ func main() {
 		cli.IntFlag{
 			Name:  "max-uppers, mU",
 			Usage: "Maximum number of uppercase letters to include. -1 means no max",
-			Value: -1,
+			Value: dpass.DefaultMax,
 		},
 		cli.StringFlag{
 			Name:  "symbol-set, ss",
 			Usage: "Set of symbols to include",
-			Value: "~!@#$%^&*()_+-=;,./?",
+			Value: dpass.DefaultSymbolSet,
 		},
 	}
 	app.Action = Run
@@ -103,22 +103,19 @@ func Run(ctx *cli.Context) error {
 		return fmt.Errorf("Username required")
 	}
 
-	g := &dpass.GenOpts{
-		Domain:     ctx.String("domain"),
-		Username:   ctx.String("username"),
-		Iteration:  ctx.Uint64("iteration"),
-		Length:     ctx.Uint64("characters"),
-		GenVersion: ctx.Uint64("pw-version"),
-		Numbers:    ctx.Uint64("numbers"),
-		MaxNumbers: ctx.Int("max-numbers"),
-		Uppers:     ctx.Uint64("uppers"),
-		MaxUppers:  ctx.Int("max-uppers"),
-		Lowers:     ctx.Uint64("lowers"),
-		MaxLowers:  ctx.Int("max-lowers"),
-		Symbols:    ctx.Uint64("symbols"),
-		MaxSymbols: ctx.Int("max-symbols"),
-		SymbolSet:  ctx.String("symbol-set"),
-	}
+	g := dpass.NewGenOpts(ctx.String("username"), ctx.String("domain"))
+	g.Iteration = ctx.Uint64("iteration")
+	g.Length = ctx.Uint64("characters")
+	g.GenVersion = ctx.Uint64("pw-version")
+	g.Numbers = ctx.Uint64("numbers")
+	g.MaxNumbers = ctx.Int("max-numbers")
+	g.Uppers = ctx.Uint64("uppers")
+	g.MaxUppers = ctx.Int("max-uppers")
+	g.Lowers = ctx.Uint64("lowers")
+	g.MaxLowers = ctx.Int("max-lowers")
+	g.Symbols = ctx.Uint64("symbols")
+	g.MaxSymbols = ctx.Int("max-symbols")
+	g.SymbolSet = ctx.String("symbol-set")
 
 	fmt.Fprint(os.Stderr, "Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
