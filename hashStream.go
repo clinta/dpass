@@ -9,6 +9,10 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
+// HashPw will generate the scrypt hash of the password which will be used to seed
+// the prng used by the password generator.
+// HashPw will call Init() if it has not already been called.
+// HashPw will zero pw before returning.
 func (g *GenOpts) HashPw(pw []byte) error {
 	// no matter what, zero the password
 	defer func() {
@@ -16,6 +20,12 @@ func (g *GenOpts) HashPw(pw []byte) error {
 			pw[i] = 0
 		}
 	}()
+
+	if !g.initialized {
+		if err := g.Init(); err != nil {
+			return err
+		}
+	}
 
 	if g.GenVersion > LatestGenVersion {
 		return fmt.Errorf("Unknown password version: %d", g.GenVersion)

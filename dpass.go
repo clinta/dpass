@@ -8,23 +8,24 @@ const AppName = "dpass"
 const LatestGenVersion = 1
 
 type GenOpts struct {
-	Domain     string `json:"d"`
-	Username   string `json:"u"`
-	Iteration  uint64 `json:"i"`
-	Length     uint64 `json:"c"`
-	GenVersion uint64 `json:"pwv"`
-	Numbers    uint64 `json:"n"`
-	MaxNumbers int    `json:"mn"`
-	Uppers     uint64 `json:"U"`
-	MaxUppers  int    `json:"mU"`
-	Lowers     uint64 `json:"l"`
-	MaxLowers  int    `json:"ml"`
-	Symbols    uint64 `json:"s"`
-	MaxSymbols int    `json:"ms"`
-	SymbolSet  string `json:"ss"`
-	charSets   []*charSet
-	chars      chars // The superset of all the valid charsets for this pw
-	hashStream *hashStream
+	Domain      string `json:"d"`
+	Username    string `json:"u"`
+	Iteration   uint64 `json:"i"`
+	Length      uint64 `json:"c"`
+	GenVersion  uint64 `json:"pwv"`
+	Numbers     uint64 `json:"n"`
+	MaxNumbers  int    `json:"mn"`
+	Uppers      uint64 `json:"U"`
+	MaxUppers   int    `json:"mU"`
+	Lowers      uint64 `json:"l"`
+	MaxLowers   int    `json:"ml"`
+	Symbols     uint64 `json:"s"`
+	MaxSymbols  int    `json:"ms"`
+	SymbolSet   string `json:"ss"`
+	initialized bool
+	charSets    []*charSet
+	chars       chars // The superset of all the valid charsets for this pw
+	hashStream  *hashStream
 }
 
 const (
@@ -108,10 +109,27 @@ func (g *GenOpts) Init() error {
 		}
 		g.chars = append(g.chars, c.chars...)
 	}
+
+	g.initialized = true
 	return nil
 }
 
-func (g *GenOpts) GenPw() (string, error) {
+// GenPW will perform all the steps required and return a deterministic
+// password based on the supplied options and master password
+func GenPW(g *GenOpts, pw []byte) (string, error) {
+	if err := g.HashPw(pw); err != nil {
+		return "", err
+	}
+	return g.GenPW()
+}
+
+// GenPW will generate a deterministic password based on the initialized options
+// and hashed master password.
+func (g *GenOpts) GenPW() (string, error) {
+	if g.hashStream == nil {
+		return "", fmt.Errorf("No password has been hashed yet.")
+	}
+	g.hashStream.ctr = 0
 	pwo := make([]uint64, g.Length) // the order to fill characters
 
 	pwr := make([]uint64, g.Length) // remainding positions to be allocated

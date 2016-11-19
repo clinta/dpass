@@ -103,7 +103,7 @@ func Run(ctx *cli.Context) error {
 		return fmt.Errorf("Username required")
 	}
 
-	g := dpass.GenOpts{
+	g := &dpass.GenOpts{
 		Domain:     ctx.String("domain"),
 		Username:   ctx.String("username"),
 		Iteration:  ctx.Uint64("iteration"),
@@ -120,20 +120,14 @@ func Run(ctx *cli.Context) error {
 		SymbolSet:  ctx.String("symbol-set"),
 	}
 
-	g.Init()
-
 	fmt.Fprint(os.Stderr, "Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Fprintln(os.Stderr, "")
 	if err != nil {
 		return err
 	}
-	if err := g.HashPw(bytePassword); err != nil {
-		return err
-	}
-	//fmt.Println("Password after hash: ", string(bytePassword))
-	//fmt.Println("Hashed Password: ", string(g.hashedPassword))
-	pw, err := g.GenPw()
+
+	pw, err := dpass.GenPW(g, bytePassword)
 	if err != nil {
 		return err
 	}
