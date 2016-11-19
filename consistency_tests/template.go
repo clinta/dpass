@@ -14,13 +14,13 @@ import (
 func TestConsistencyV%d(t *testing.T) {
 	assert := assert.New(t)
 	for _, tr := range v%dTests {
-		go func() {
-			g, err := dpass.FromJSON(tr.json)
+		go func(tr testResult) {
+			g, err := dpass.FromJSON([]byte(tr.json))
 			assert.NoError(err)
-			pw, err := dpass.GenPW(g, tr.mpw)
+			pw, err := dpass.GenPW(g, []byte(tr.mpw))
 			assert.NoError(err)
 			assert.Equal(tr.pw, pw)
-		}()
+		}(tr)
 	}
 }
 
