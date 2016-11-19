@@ -120,7 +120,7 @@ func Run(ctx *cli.Context) error {
 		SymbolSet:  ctx.String("symbol-set"),
 	}
 
-	g.SetChars()
+	g.Init()
 
 	fmt.Fprint(os.Stderr, "Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))

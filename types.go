@@ -28,10 +28,14 @@ type GenOpts struct {
 }
 
 const (
-	number = iota
-	upper
-	lower
-	symbol
+	Number = iota
+	Upper
+	Lower
+	Symbol
+)
+
+const (
+	maxCharset = Symbol
 )
 
 type charSet struct {
@@ -68,38 +72,48 @@ func (c chars) index(r rune) int {
 	return -1
 }
 
-func (g *GenOpts) SetChars() {
-	g.charSets = make([]*charSet, 4)
+// Init configures and validates the character sets for generating a password
+func (g *GenOpts) Init() error {
+	g.charSets = make([]*charSet, maxCharset+1)
 
-	g.charSets[number] = &charSet{min: g.Numbers}
-	g.charSets[number].setMax(g.MaxNumbers, g.Length)
-	g.charSets[number].populate('0', '9')
+	g.charSets[Number] = &charSet{min: g.Numbers}
+	g.charSets[Number].setMax(g.MaxNumbers, g.Length)
+	g.charSets[Number].populate('0', '9')
 
-	g.charSets[upper] = &charSet{min: g.Uppers}
-	g.charSets[upper].setMax(g.MaxUppers, g.Length)
-	g.charSets[upper].populate('A', 'Z')
+	g.charSets[Upper] = &charSet{min: g.Uppers}
+	g.charSets[Upper].setMax(g.MaxUppers, g.Length)
+	g.charSets[Upper].populate('A', 'Z')
 
-	g.charSets[lower] = &charSet{min: g.Lowers}
-	g.charSets[lower].setMax(g.MaxLowers, g.Length)
-	g.charSets[lower].populate('a', 'z')
+	g.charSets[Lower] = &charSet{min: g.Lowers}
+	g.charSets[Lower].setMax(g.MaxLowers, g.Length)
+	g.charSets[Lower].populate('a', 'z')
 
-	g.charSets[symbol] = &charSet{min: g.Symbols}
-	g.charSets[symbol].setMax(g.MaxSymbols, g.Length)
+	g.charSets[Symbol] = &charSet{min: g.Symbols}
+	g.charSets[Symbol].setMax(g.MaxSymbols, g.Length)
 	fs := make(map[rune]struct{})
 	for _, r := range g.SymbolSet {
 		if _, ok := fs[r]; ok {
 			continue
 		}
-		g.charSets[symbol].chars = append(g.charSets[symbol].chars, r)
+		g.charSets[Symbol].chars = append(g.charSets[Symbol].chars, r)
 		fs[r] = struct{}{}
 	}
 
+	tm := uint64(0) // total max
 	for _, c := range g.charSets {
+		if c.min > c.max {
+			return fmt.Errorf("Character set min > max")
+		}
+		tm += c.min
+		if tm > g.Length {
+			return fmt.Errorf("Minimum character requirements are greater than the length")
+		}
 		if c.max == 0 {
 			continue
 		}
 		g.chars = append(g.chars, c.chars...)
 	}
+	return nil
 }
 
 type pw []rune
@@ -136,20 +150,16 @@ func (g *GenOpts) GenPw() (string, error) {
 	// Make sure it meets minimum reqs, and replace if not
 	i := 0
 	for _, c := range g.charSets {
-		if i >= len(pwo) {
-			return "", fmt.Errorf("Unale to satisfy requirements")
+		for c.cur < c.min {
+			p := pwo[i]
+			j := g.hashStream.nextMax(uint64(len(c.chars)))
+			r := c.chars[j]
+			pw[p] = r
+			if err := g.updateChars(r); err != nil {
+				return "", err
+			}
+			i++
 		}
-		if c.cur >= c.min {
-			continue
-		}
-		p := pwo[i]
-		j := g.hashStream.nextMax(uint64(len(c.chars)))
-		r := c.chars[j]
-		pw[p] = r
-		if err := g.updateChars(r); err != nil {
-			return "", err
-		}
-		i++
 	}
 
 	return string(pw), nil
