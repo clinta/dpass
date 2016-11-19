@@ -5,19 +5,16 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/clinta/dpass"
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-const appName = "dpass"
 const version = "0.1"
-
-// This is the version of the generator. It is encoded into the output blob for reverse compatibility if the generation algorithm has changed
-const latestGenVersion = 1
 
 func main() {
 	app := cli.NewApp()
-	app.Name = appName
+	app.Name = dpass.AppName
 	app.Usage = "Deterministic Password Generator"
 	app.Version = version
 	app.Flags = []cli.Flag{
@@ -42,7 +39,7 @@ func main() {
 		cli.Uint64Flag{
 			Name:  "pw-version, pwv",
 			Usage: "Version of the password generation algorithm to use",
-			Value: latestGenVersion,
+			Value: dpass.LatestGenVersion,
 		},
 		cli.Uint64Flag{
 			Name:  "symbols, s",
@@ -106,7 +103,7 @@ func Run(ctx *cli.Context) error {
 		return fmt.Errorf("Username required")
 	}
 
-	g := genOpts{
+	g := dpass.GenOpts{
 		Domain:     ctx.String("domain"),
 		Username:   ctx.String("username"),
 		Iteration:  ctx.Uint64("iteration"),
@@ -123,7 +120,7 @@ func Run(ctx *cli.Context) error {
 		SymbolSet:  ctx.String("symbol-set"),
 	}
 
-	g.setChars()
+	g.SetChars()
 
 	fmt.Fprint(os.Stderr, "Enter Master Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -131,12 +128,12 @@ func Run(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := g.hashPw(bytePassword); err != nil {
+	if err := g.HashPw(bytePassword); err != nil {
 		return err
 	}
 	//fmt.Println("Password after hash: ", string(bytePassword))
 	//fmt.Println("Hashed Password: ", string(g.hashedPassword))
-	pw, err := g.genPw()
+	pw, err := g.GenPw()
 	if err != nil {
 		return err
 	}

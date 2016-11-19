@@ -1,4 +1,4 @@
-package main
+package dpass
 
 import (
 	"encoding/binary"
@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
-func (g *genOpts) hashPw(pw []byte) error {
+func (g *GenOpts) HashPw(pw []byte) error {
 	// no matter what, zero the password
 	defer func() {
 		for i := range pw {
@@ -17,13 +17,13 @@ func (g *genOpts) hashPw(pw []byte) error {
 		}
 	}()
 
-	if g.GenVersion > latestGenVersion {
+	if g.GenVersion > LatestGenVersion {
 		return fmt.Errorf("Unknown password version: %d", g.GenVersion)
 	}
 
 	// Version 1
 	var err error
-	salt := []byte(fmt.Sprint(g.Domain, g.Username, g.Iteration, appName))
+	salt := []byte(fmt.Sprint(g.Domain, g.Username, g.Iteration, AppName))
 	seed, err := scrypt.Key(pw, salt, 2^10, 8, 1, 128)
 	if err != nil {
 		return err

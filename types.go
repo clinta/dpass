@@ -1,8 +1,13 @@
-package main
+package dpass
 
 import "fmt"
 
-type genOpts struct {
+const AppName = "dpass"
+
+// This is the version of the generator. It is encoded into the output blob for reverse compatibility if the generation algorithm has changed
+const LatestGenVersion = 1
+
+type GenOpts struct {
 	Domain     string     `json:"d"`
 	Username   string     `json:"u"`
 	Iteration  uint64     `json:"i"`
@@ -63,7 +68,7 @@ func (c chars) index(r rune) int {
 	return -1
 }
 
-func (g *genOpts) setChars() {
+func (g *GenOpts) SetChars() {
 	g.charSets = make([]*charSet, 4)
 
 	g.charSets[number] = &charSet{min: g.Numbers}
@@ -99,7 +104,7 @@ func (g *genOpts) setChars() {
 
 type pw []rune
 
-func (g *genOpts) genPw() (string, error) {
+func (g *GenOpts) GenPw() (string, error) {
 	pwo := make([]uint64, g.Length) // the order to fill characters
 
 	pwr := make([]uint64, g.Length) // remainding positions to be allocated
@@ -150,7 +155,7 @@ func (g *genOpts) genPw() (string, error) {
 	return string(pw), nil
 }
 
-func (g *genOpts) updateChars(r rune) error {
+func (g *GenOpts) updateChars(r rune) error {
 	for _, c := range g.charSets {
 		if c.chars.index(r) == -1 {
 			continue
