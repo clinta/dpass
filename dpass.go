@@ -34,9 +34,7 @@ const (
 	Symbol
 )
 
-const (
-	maxCharset = Symbol
-)
+const maxCharset = Symbol
 
 type charSet struct {
 	chars chars
@@ -115,8 +113,6 @@ func (g *GenOpts) Init() error {
 	}
 	return nil
 }
-
-type pw []rune
 
 func (g *GenOpts) GenPw() (string, error) {
 	pwo := make([]uint64, g.Length) // the order to fill characters
