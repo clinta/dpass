@@ -130,7 +130,7 @@ func (g *GenOpts) GenPw() (string, error) {
 	}
 
 	// time to fill the password
-	pw := make(pw, g.Length)
+	pw := make([]rune, g.Length)
 	for _, p := range pwo {
 		if len(g.chars) == 0 {
 			return "", fmt.Errorf("Unable to satisfy requirements")
