@@ -8,22 +8,22 @@ const AppName = "dpass"
 const LatestGenVersion = 1
 
 type GenOpts struct {
-	Domain     string     `json:"d"`
-	Username   string     `json:"u"`
-	Iteration  uint64     `json:"i"`
-	Length     uint64     `json:"c"`
-	GenVersion uint64     `json:"pwv"`
-	Numbers    uint64     `json:"n"`
-	MaxNumbers int        `json:"mn"`
-	Uppers     uint64     `json:"U"`
-	MaxUppers  int        `json:"mU"`
-	Lowers     uint64     `json:"l"`
-	MaxLowers  int        `json:"ml"`
-	Symbols    uint64     `json:"s"`
-	MaxSymbols int        `json:"ms"`
-	SymbolSet  string     `json:"ss"`
-	charSets   []*charSet `json:"cs"`
-	chars      chars      // The superset of all the valid charsets for this pw
+	Domain     string `json:"d"`
+	Username   string `json:"u"`
+	Iteration  uint64 `json:"i"`
+	Length     uint64 `json:"c"`
+	GenVersion uint64 `json:"pwv"`
+	Numbers    uint64 `json:"n"`
+	MaxNumbers int    `json:"mn"`
+	Uppers     uint64 `json:"U"`
+	MaxUppers  int    `json:"mU"`
+	Lowers     uint64 `json:"l"`
+	MaxLowers  int    `json:"ml"`
+	Symbols    uint64 `json:"s"`
+	MaxSymbols int    `json:"ms"`
+	SymbolSet  string `json:"ss"`
+	charSets   []*charSet
+	chars      chars // The superset of all the valid charsets for this pw
 	hashStream *hashStream
 }
 
