@@ -31,7 +31,7 @@ func randStr(t *testing.T, d []rune, l uint64) string {
 	return string(s)
 }
 
-func TestPWCharDistribution(t *testing.T) {
+func testPWCharDistribution(t *testing.T) {
 	assert := assert.New(t)
 	g := newG1Opts()
 	assert.NoError(g.Init())
