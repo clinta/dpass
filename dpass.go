@@ -88,13 +88,10 @@ func (g *GenOpts) Init() error {
 
 	g.charSets[Symbol] = &charSet{min: g.Symbols}
 	g.charSets[Symbol].setMax(g.MaxSymbols, g.Length)
-	fs := make(map[rune]struct{})
 	for _, r := range g.SymbolSet {
-		if _, ok := fs[r]; ok {
-			continue
+		if g.charSets[Symbol].chars.index(r) == -1 {
+			g.charSets[Symbol].chars = append(g.charSets[Symbol].chars, r)
 		}
-		g.charSets[Symbol].chars = append(g.charSets[Symbol].chars, r)
-		fs[r] = struct{}{}
 	}
 
 	tm := uint64(0) // total max
@@ -123,6 +120,8 @@ func (g *GenOpts) GenPw() (string, error) {
 	}
 
 	// Get the deterministic, random order which the pw will be filled
+	// This is important so that character sets with a maximum limit are
+	// not biased toward the beginning of the password.
 	for i := uint64(0); i < g.Length; i++ {
 		j := g.hashStream.nextMax(uint64(len(pwr)))
 		pwo[i] = pwr[j]
@@ -143,7 +142,8 @@ func (g *GenOpts) GenPw() (string, error) {
 		}
 	}
 
-	// Make sure it meets minimum reqs, and replace if not
+	// Replace characters until it meets the minimum requirements.
+	// This can be done in the same "random" order that the password was filled.
 	i := 0
 	for _, c := range g.charSets {
 		for c.cur < c.min {
@@ -161,6 +161,9 @@ func (g *GenOpts) GenPw() (string, error) {
 	return string(pw), nil
 }
 
+// updateChars increments all the appropriate character class counters
+// and removes character sets from the global pool if they have reached
+// their max.
 func (g *GenOpts) updateChars(r rune) error {
 	for _, c := range g.charSets {
 		if c.chars.index(r) == -1 {
@@ -168,7 +171,7 @@ func (g *GenOpts) updateChars(r rune) error {
 		}
 		c.cur++
 		if c.cur == c.max {
-			g.chars.remove(c.chars...)
+			g.chars = g.chars.remove(c.chars...)
 		}
 		if c.cur > c.max {
 			return fmt.Errorf("Unable to satisfy maximum requirements")
@@ -177,7 +180,7 @@ func (g *GenOpts) updateChars(r rune) error {
 	return nil
 }
 
-func (c chars) remove(rs ...rune) {
+func (c chars) remove(rs ...rune) chars {
 	for _, r := range rs {
 		i := c.index(r)
 		if i == -1 {
@@ -185,4 +188,5 @@ func (c chars) remove(rs ...rune) {
 		}
 		c = append(c[:i], c[i+1:]...)
 	}
+	return c
 }
