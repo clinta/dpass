@@ -1,12 +1,15 @@
-hash: 03faf92c6b0f4e2b996ddfe28effc11f9af2e898de9105d63e815b212974b5a5
-updated: 2016-11-19T15:51:52.776737206-05:00
+hash: 65f75516463c8307683b355bf59fbc387f578dcffb96745861da5a979ceb86f8
+updated: 2016-11-19T22:52:26.214939714-05:00
 imports:
 - name: github.com/urfave/cli
   version: b6061c464d493dd94985211595687c862a0dd0bc
 - name: golang.org/x/crypto
   version: 9477e0b78b9ac3d0b03822fd95422e2fe07627cd
   subpackages:
+  - nacl/secretbox
   - pbkdf2
+  - poly1305
+  - salsa20/salsa
   - scrypt
   - ssh/terminal
 - name: golang.org/x/sys

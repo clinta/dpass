@@ -5,6 +5,7 @@ import:
   subpackages:
   - scrypt
   - ssh/terminal
+  - nacl/secretbox
 testImport:
 - package: github.com/stretchr/testify
   subpackages:

@@ -87,11 +87,19 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name:  "json, j",
-			Usage: "Output json based options",
+			Usage: "Output json encoded options",
+		},
+		cli.BoolFlag{
+			Name:  "identifier, id",
+			Usage: "Output the Options ID that can be used to index stored options",
 		},
 		cli.StringFlag{
 			Name:  "json-in, ji",
 			Usage: "Input json options",
+		},
+		cli.BoolFlag{
+			Name:  "quiet, q",
+			Usage: "Print only the password to stdout",
 		},
 	}
 	app.Action = Run
@@ -138,8 +146,11 @@ func Run(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(j))
-		return nil
+		if ctx.Bool("quiet") {
+			fmt.Println(string(j))
+			return nil
+		}
+		fmt.Printf("JSON: %s\n", j)
 	}
 
 	fmt.Fprint(os.Stderr, "Enter Master Password: ")
@@ -154,6 +165,19 @@ func Run(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(pw)
+	if ctx.Bool("quiet") {
+		fmt.Println(pw)
+		return nil
+	}
+	fmt.Printf("PW: %s\n", pw)
+
+	if ctx.Bool("id") {
+		id, err := g.BlobIndex()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("ID: %s\n", id)
+	}
+
 	return nil
 }
