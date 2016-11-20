@@ -25,23 +25,40 @@ func FromJSON(d []byte) (*GenOpts, error) {
 // Returns the sha512_256 of the scrypt hash and the domain name, used both for
 // generating the blobIndex and the blob encryption key
 func (g *GenOpts) blobKey() ([32]byte, error) {
-	if g.hashMP == [64]byte{} {
+	if g.mpHash == [64]byte{} {
 		return [32]byte{}, fmt.Errorf("No password has been hashed yet.")
 	}
-	seedSrc := append(g.hashMP[:], []byte(g.Domain)...)
+	seedSrc := append(g.mpHash[:], []byte(g.Domain)...)
 	dh := sha512.Sum512_256(seedSrc)
 	return dh, nil
 }
 
-func (g *GenOpts) jsonKey() ([4]byte, error) {
-	var r [4]byte
+func (g *GenOpts) jsonKey() (string, error) {
 	j, err := g.JSON()
 	if err != nil {
-		return r, err
+		return "", err
 	}
 	jh := sha512.Sum512_256(j)
-	copy(r[:], jh[:4])
-	return r, nil
+	return base64.URLEncoding.EncodeToString(jh[:4]), nil
+}
+
+func (g *GenOpts) blobIndexPrefix() (string, error) {
+	dh, err := g.blobKey()
+	if err != nil {
+		return "", err
+	}
+	dh = sha512.Sum512_256(dh[:])
+	return base64.URLEncoding.EncodeToString(dh[:16]), nil
+}
+
+// Given a domain and password, return the blob index prefix which
+// can be used by an interface to look up all blobs for that domain
+func BlobIndexPrefix(dom string, pw []byte) (string, error) {
+	g := NewGenOpts("", dom)
+	if err := g.HashPw(pw); err != nil {
+		return "", err
+	}
+	return g.blobIndexPrefix()
 }
 
 // BlobIndex returns the index string which can identify an encrypted
@@ -51,18 +68,15 @@ func (g *GenOpts) jsonKey() ([4]byte, error) {
 // uniquely identify this entry for the domain.
 // This makes searching for entries for a given domain possible before decryption.
 func (g *GenOpts) BlobIndex() (string, error) {
-	dh, err := g.blobKey()
+	bp, err := g.blobIndexPrefix()
 	if err != nil {
 		return "", err
 	}
-	dh = sha512.Sum512_256(dh[:])
-
-	jh, err := g.jsonKey()
+	jk, err := g.jsonKey()
 	if err != nil {
 		return "", err
 	}
-	ch := append(dh[:16], jh[:4]...)
-	s := base64.URLEncoding.EncodeToString(ch)
+	s := bp + jk
 	return s, nil
 }
 

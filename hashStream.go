@@ -35,7 +35,7 @@ func (g *GenOpts) HashPw(pw []byte) error {
 	if err != nil {
 		return err
 	}
-	copy(g.hashMP[:], hashMP)
+	copy(g.mpHash[:], hashMP)
 	return nil
 }
 
@@ -46,7 +46,7 @@ func (g *GenOpts) makeHashStream() (*hashStream, error) {
 	if g.Username == "" {
 		return nil, fmt.Errorf("Username required")
 	}
-	seedSrc := append(g.hashMP[:], []byte(g.Domain)...)
+	seedSrc := append(g.mpHash[:], []byte(g.Domain)...)
 	seedSrc = append(seedSrc, []byte(g.Username)...)
 
 	bi := make([]byte, 8)

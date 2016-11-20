@@ -22,7 +22,7 @@ type GenOpts struct {
 	Symbols    uint64   `json:"s"`
 	MaxSymbols int      `json:"ms"`
 	SymbolSet  string   `json:"ss"`
-	hashMP     [64]byte // The scrypt hash of the master password.
+	mpHash     [64]byte // The scrypt hash of the master password.
 }
 
 const (
@@ -146,7 +146,7 @@ func GenPW(g *GenOpts, pw []byte) (string, error) {
 // GenPW will generate a deterministic password based on the initialized options
 // and hashed master password.
 func (g *GenOpts) GenPW() (string, error) {
-	if g.hashMP == [64]byte{} {
+	if g.mpHash == [64]byte{} {
 		return "", fmt.Errorf("No password has been hashed yet.")
 	}
 	globalChars, charSets, err := g.getChars()
