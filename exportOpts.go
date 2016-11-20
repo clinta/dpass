@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha512"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -39,7 +40,7 @@ func (g *GenOpts) jsonKey() (string, error) {
 		return "", err
 	}
 	jh := sha512.Sum512_256(j)
-	return base64.URLEncoding.EncodeToString(jh[:4]), nil
+	return base32.HexEncoding.EncodeToString(jh[:5]), nil
 }
 
 func (g *GenOpts) blobIndexPrefix() (string, error) {
@@ -48,7 +49,8 @@ func (g *GenOpts) blobIndexPrefix() (string, error) {
 		return "", err
 	}
 	dh = sha512.Sum512_256(dh[:])
-	return base64.URLEncoding.EncodeToString(dh[:16]), nil
+	// base32 extended works on case insensitive filesystems
+	return base32.HexEncoding.EncodeToString(dh[:10]), nil
 }
 
 // Given a domain and password, return the blob index prefix which
@@ -62,7 +64,7 @@ func BlobIndexPrefix(dom string, pw []byte) (string, error) {
 }
 
 // BlobIndex returns the index string which can identify an encrypted
-// options blob. The first 22 characters are the base64 double sha512_128 sum of the
+// options blob. The first 22 characters are the base32 double sha512_128 sum of the
 // domain name and mphash.
 // The remaining 6 characters are a hash of the json encoded options to
 // uniquely identify this entry for the domain.
@@ -80,7 +82,7 @@ func (g *GenOpts) BlobIndex() (string, error) {
 	return s, nil
 }
 
-// Blob returns a base64 encoded encrypted blob of the json encoded options.
+// Blob returns a base32 encoded encrypted blob of the json encoded options.
 // First the json is compressed, then encrypted using the sha512_256 sum of the
 // scrypt master password hash + the domain name. This makes the encryption key
 // unique for each domain, but allows decrypting all entries for a single domain
