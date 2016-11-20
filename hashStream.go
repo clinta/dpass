@@ -9,6 +9,16 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
+// What kind of salt is that? You can't use a constant salt, what's the point in even
+// having a salt then?
+// Look, self, I know it's not ideal. But the goal of this project is to have
+// stateless generation of the same hashes from the master password and other options.
+// There is no place to store a dynamic salt. But if someone wants to precompute hashes
+// To attack users of this app, they're going to need to precompute hashes for this app
+// specifically.
+// Now don't be so salty.
+const appSalt = "\x81\xf1\xed\x02\t\xd9\\\xff\xdc\b-\xd4\x01\r\x05\xd6"
+
 // HashPw will generate the scrypt hash of the password which will be used to seed
 // the prng used by the password generator.
 // HashPw will call Init() if it has not already been called.
@@ -21,7 +31,7 @@ func (g *GenOpts) HashPw(pw []byte) error {
 		}
 	}()
 
-	hashMP, err := scrypt.Key(pw, []byte(AppName), 2^10, 8, 1, 512)
+	hashMP, err := scrypt.Key(pw, []byte(appSalt), 2^10, 8, 1, 512)
 	if err != nil {
 		return err
 	}
