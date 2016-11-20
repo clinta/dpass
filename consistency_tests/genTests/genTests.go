@@ -18,12 +18,14 @@ func main() {
 		go func(tp ctests.TestParam, i int) {
 			g, err := dpass.FromJSON([]byte(tp.JSONOpts))
 			if err != nil {
-				panic(err)
+				e := fmt.Sprintf("Error generating from json on test %d: %v", i, tp.JSONOpts)
+				panic(e)
 			}
 			g.GenVersion = pwv
 			pw, err := dpass.GenPW(g, []byte(tp.MasterPass))
 			if err != nil {
-				panic(err)
+				e := fmt.Sprintf("Error generating password on test %d\ng: %+v\njson: %s\nerr: %v", i, g, string(tp.JSONOpts), err)
+				panic(e)
 			}
 			tr[i] = pw
 			wg.Done()
@@ -41,6 +43,7 @@ func main() {
 
 	ret, err := format.Source(ret)
 	if err != nil {
+		fmt.Printf("Error on gofmt")
 		panic(err)
 	}
 

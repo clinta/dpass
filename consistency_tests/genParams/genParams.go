@@ -22,12 +22,18 @@ func main() {
 	for i := 0; i <= mpwsToTest; i++ {
 		wg.Add(1)
 		go func() {
-			mpw := utils.RandStr([]rune{}, utils.RandMax(50))
+			mpw := utils.RandStrIn(5, 50)
 			for i := 0; i <= testPerMPW; i++ {
 				wg.Add(1)
 				go func() {
-					dom := utils.RandStr([]rune{}, utils.RandMax(100))
-					usr := utils.RandStr([]rune{}, utils.RandMax(20))
+					dom := utils.RandStrIn(5, 100)
+					if dom == "" {
+						panic("Empty domain!")
+					}
+					usr := utils.RandStrIn(4, 20)
+					if usr == "" {
+						panic("Empty domain!")
+					}
 					g := dpass.NewGenOpts(usr, dom)
 					j, err := g.JSON()
 					if err != nil {
