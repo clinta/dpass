@@ -8,24 +8,21 @@ const AppName = "dpass"
 const LatestGenVersion = uint64(1)
 
 type GenOpts struct {
-	Domain      string `json:"d"`
-	Username    string `json:"u"`
-	Iteration   uint64 `json:"i"`
-	Length      uint64 `json:"c"`
-	GenVersion  uint64 `json:"pwv"`
-	Numbers     uint64 `json:"n"`
-	MaxNumbers  int    `json:"mn"`
-	Uppers      uint64 `json:"U"`
-	MaxUppers   int    `json:"mU"`
-	Lowers      uint64 `json:"l"`
-	MaxLowers   int    `json:"ml"`
-	Symbols     uint64 `json:"s"`
-	MaxSymbols  int    `json:"ms"`
-	SymbolSet   string `json:"ss"`
-	initialized bool
-	charSets    []*charSet
-	chars       chars // The superset of all the valid charsets for this pw
-	hashStream  *hashStream
+	Domain     string   `json:"d"`
+	Username   string   `json:"u"`
+	Iteration  uint64   `json:"i"`
+	Length     uint64   `json:"c"`
+	GenVersion uint64   `json:"pwv"`
+	Numbers    uint64   `json:"n"`
+	MaxNumbers int      `json:"mn"`
+	Uppers     uint64   `json:"U"`
+	MaxUppers  int      `json:"mU"`
+	Lowers     uint64   `json:"l"`
+	MaxLowers  int      `json:"ml"`
+	Symbols    uint64   `json:"s"`
+	MaxSymbols int      `json:"ms"`
+	SymbolSet  string   `json:"ss"`
+	hashMP     [64]byte // The scrypt hash of the master password.
 }
 
 const (
@@ -92,47 +89,49 @@ func (c chars) index(r rune) int {
 	return -1
 }
 
-// Init configures and validates the character sets for generating a password
-func (g *GenOpts) Init() error {
-	g.charSets = make([]*charSet, maxCharset+1)
+// this configures and validates the character sets for generating a password
+// It is called automatically when generating a password, but can be called
+// manually to validate character set options if desired
+func (g *GenOpts) getChars() (globalChars chars, charSets []*charSet, err error) {
+	charSets = make([]*charSet, maxCharset+1)
 
-	g.charSets[Number] = &charSet{min: g.Numbers}
-	g.charSets[Number].setMax(g.MaxNumbers, g.Length)
-	g.charSets[Number].populate('0', '9')
+	charSets[Number] = &charSet{min: g.Numbers}
+	charSets[Number].setMax(g.MaxNumbers, g.Length)
+	charSets[Number].populate('0', '9')
 
-	g.charSets[Upper] = &charSet{min: g.Uppers}
-	g.charSets[Upper].setMax(g.MaxUppers, g.Length)
-	g.charSets[Upper].populate('A', 'Z')
+	charSets[Upper] = &charSet{min: g.Uppers}
+	charSets[Upper].setMax(g.MaxUppers, g.Length)
+	charSets[Upper].populate('A', 'Z')
 
-	g.charSets[Lower] = &charSet{min: g.Lowers}
-	g.charSets[Lower].setMax(g.MaxLowers, g.Length)
-	g.charSets[Lower].populate('a', 'z')
+	charSets[Lower] = &charSet{min: g.Lowers}
+	charSets[Lower].setMax(g.MaxLowers, g.Length)
+	charSets[Lower].populate('a', 'z')
 
-	g.charSets[Symbol] = &charSet{min: g.Symbols}
-	g.charSets[Symbol].setMax(g.MaxSymbols, g.Length)
+	charSets[Symbol] = &charSet{min: g.Symbols}
+	charSets[Symbol].setMax(g.MaxSymbols, g.Length)
 	for _, r := range g.SymbolSet {
-		if g.charSets[Symbol].chars.index(r) == -1 {
-			g.charSets[Symbol].chars = append(g.charSets[Symbol].chars, r)
+		if charSets[Symbol].chars.index(r) == -1 {
+			charSets[Symbol].chars = append(charSets[Symbol].chars, r)
 		}
 	}
 
 	tm := uint64(0) // total max
-	for _, c := range g.charSets {
+	for _, c := range charSets {
 		if c.min > c.max {
-			return fmt.Errorf("Character set min > max")
+			err = fmt.Errorf("Character set min > max")
+			return
 		}
 		tm += c.min
 		if tm > g.Length {
-			return fmt.Errorf("Minimum character requirements are greater than the length")
+			err = fmt.Errorf("Minimum character requirements are greater than the length")
+			return
 		}
 		if c.max == 0 {
 			continue
 		}
-		g.chars = append(g.chars, c.chars...)
+		globalChars = append(globalChars, c.chars...)
 	}
-
-	g.initialized = true
-	return nil
+	return
 }
 
 // GenPW will perform all the steps required and return a deterministic
@@ -147,12 +146,19 @@ func GenPW(g *GenOpts, pw []byte) (string, error) {
 // GenPW will generate a deterministic password based on the initialized options
 // and hashed master password.
 func (g *GenOpts) GenPW() (string, error) {
-	if g.hashStream == nil {
+	if g.hashMP == [64]byte{} {
 		return "", fmt.Errorf("No password has been hashed yet.")
 	}
-	g.hashStream.ctr = 0
-	pwo := make([]uint64, g.Length) // the order to fill characters
+	globalChars, charSets, err := g.getChars()
+	if err != nil {
+		return "", err
+	}
+	h, err := g.makeHashStream()
+	if err != nil {
+		return "", err
+	}
 
+	pwo := make([]uint64, g.Length) // the order to fill characters
 	pwr := make([]uint64, g.Length) // remainding positions to be allocated
 	for i := uint64(0); i < g.Length; i++ {
 		pwr[i] = i
@@ -162,7 +168,7 @@ func (g *GenOpts) GenPW() (string, error) {
 	// This is important so that character sets with a maximum limit are
 	// not biased toward the beginning of the password.
 	for i := uint64(0); i < g.Length; i++ {
-		j := g.hashStream.nextMax(uint64(len(pwr)))
+		j := h.nextMax(uint64(len(pwr)))
 		pwo[i] = pwr[j]
 		pwr = append(pwr[:j], pwr[j+1:]...)
 	}
@@ -170,13 +176,14 @@ func (g *GenOpts) GenPW() (string, error) {
 	// time to fill the password
 	pw := make([]rune, g.Length)
 	for _, p := range pwo {
-		if len(g.chars) == 0 {
+		if len(globalChars) == 0 {
 			return "", fmt.Errorf("Unable to satisfy requirements")
 		}
-		j := g.hashStream.nextMax(uint64(len(g.chars)))
-		r := g.chars[j]
+		j := h.nextMax(uint64(len(globalChars)))
+		r := globalChars[j]
 		pw[p] = r
-		if err := g.updateChars(r); err != nil {
+		globalChars, err = globalChars.updateChars(charSets, r)
+		if err != nil {
 			return "", err
 		}
 	}
@@ -184,13 +191,14 @@ func (g *GenOpts) GenPW() (string, error) {
 	// Replace characters until it meets the minimum requirements.
 	// This can be done in the same "random" order that the password was filled.
 	i := 0
-	for _, c := range g.charSets {
+	for _, c := range charSets {
 		for c.cur < c.min {
 			p := pwo[i]
-			j := g.hashStream.nextMax(uint64(len(c.chars)))
+			j := h.nextMax(uint64(len(c.chars)))
 			r := c.chars[j]
 			pw[p] = r
-			if err := g.updateChars(r); err != nil {
+			globalChars, err = globalChars.updateChars(charSets, r)
+			if err != nil {
 				return "", err
 			}
 			i++
@@ -203,20 +211,20 @@ func (g *GenOpts) GenPW() (string, error) {
 // updateChars increments all the appropriate character class counters
 // and removes character sets from the global pool if they have reached
 // their max.
-func (g *GenOpts) updateChars(r rune) error {
-	for _, c := range g.charSets {
+func (cs chars) updateChars(charSets []*charSet, r rune) (chars, error) {
+	for _, c := range charSets {
 		if c.chars.index(r) == -1 {
 			continue
 		}
 		c.cur++
 		if c.cur == c.max {
-			g.chars = g.chars.remove(c.chars...)
+			cs = cs.remove(c.chars...)
 		}
 		if c.cur > c.max {
-			return fmt.Errorf("Unable to satisfy maximum requirements")
+			return cs, fmt.Errorf("Unable to satisfy maximum requirements")
 		}
 	}
-	return nil
+	return cs, nil
 }
 
 func (c chars) remove(rs ...rune) chars {
